@@ -10,11 +10,16 @@ import (
 func Router(app *fiber.App){
 	api := app.Group("/api/v1")
 
-	userApi := api.Group("/auth")
+	authApi := api.Group("/auth")
 
-	userApi.Post("/signup", middlewares.ValidateMiddleware ,controllers.Signup)
-	userApi.Post("/signin", middlewares.ValidateMiddleware, controllers.SingIn)
-	userApi.Post("/signout", middlewares.RequireAuthMiddleware, controllers.SingOut)
+	userApi := api.Group("/user")
+
+	authApi.Post("/signup", middlewares.ValidateMiddleware ,controllers.Signup)
+	authApi.Post("/signin", middlewares.ValidateMiddleware, controllers.SingIn)
+	authApi.Post("/signout", middlewares.RequireAuthMiddleware, controllers.SingOut)
 	userApi.Get("/profile", middlewares.RequireAuthMiddleware, controllers.Profile)
 	userApi.Put("/update-address", middlewares.RequireAuthMiddleware, controllers.UpdateAddress)
+
+	productApi := api.Group("/products")
+	productApi.Post("/", middlewares.RequireAuthMiddleware, controllers.CreateProduct)
 }
