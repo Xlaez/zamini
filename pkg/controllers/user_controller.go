@@ -184,10 +184,26 @@ func SingIn(c *fiber.Ctx)error{
     user.UserType = existingUser.Lookup("userType").StringValue()
     user.CreatedAt = existingUser.Lookup("createdAt").Time()
     user.UpdatedAt = existingUser.Lookup("updatedAt").Time()
-	
+
 	return c.Status(200).JSON(fiber.Map{
 		"status": "success",
 		"message": "User signin successfully",
 		"data": user,
+	})
+}
+
+func SingOut(c *fiber.Ctx)error{
+	cookie:= &fiber.Cookie{
+		Name: "x-auth-jwt",
+		Value: "",
+		Expires: time.Now().Add(-time.Hour),
+		HTTPOnly: true,
+	}
+
+	c.Cookie(cookie)
+
+	return c.Status(200).JSON(fiber.Map{
+		"status": "success",
+		"message": "successfully signed user out",
 	})
 }
