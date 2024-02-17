@@ -13,9 +13,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var userController *mongo.Collection = db.OpenCollection(db.Client, "users")
+var userCollection *mongo.Collection = db.OpenCollection(db.Client, "users")
 
 func Signup(c *fiber.Ctx) error{
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*5)
@@ -53,7 +54,7 @@ func Signup(c *fiber.Ctx) error{
 
 	if user.UserType == "ADMIN"{
 		filter := bson.M{"userType": "ADMIN"}
-		if _, err := userController.FindOne(ctx, filter).DecodeBytes(); err !=nil{
+		if _, err := userCollection.FindOne(ctx, filter).DecodeBytes(); err !=nil{
 			return c.Status(400).JSON(fiber.Map{
 				"status": "error",
 				"message": "Admin already exists",
@@ -63,7 +64,7 @@ func Signup(c *fiber.Ctx) error{
 	}
 
 	filter := bson.M{"email": user.Email}
-	if _, err := userController.FindOne(ctx, filter).DecodeBytes(); err ==  nil{
+	if _, err := userCollection.FindOne(ctx, filter).DecodeBytes(); err ==  nil{
 		return c.Status(400).JSON(fiber.Map{
 			"status": "error",
 			"message": "User with email already registerd",
@@ -83,7 +84,7 @@ func Signup(c *fiber.Ctx) error{
 
 	user.Password = password
 
-	if _, err := userController.InsertOne(ctx, user); err !=nil{
+	if _, err := userCollection.InsertOne(ctx, user); err !=nil{
 		return c.Status(500).JSON(fiber.Map{
 			"status": "error",
 			"message": "cannot create user",
@@ -139,7 +140,7 @@ func SingIn(c *fiber.Ctx)error{
 
 	var existingUser bson.Raw
 	
-	if err := userController.FindOne(ctx, bson.M{"email": req.Email}).Decode(&existingUser);err !=nil{
+	if err := userCollection.FindOne(ctx, bson.M{"email": req.Email}).Decode(&existingUser);err !=nil{
 		return c.Status(400).JSON(fiber.Map{
 			"status": "error",
 			"message": "user does not exist",
@@ -223,7 +224,7 @@ func Profile(c *fiber.Ctx) error{
 	defer cancel()
 
 	var user models.User
-	if err = userController.FindOne(ctx, bson.M{"_id": userId}).Decode(&user); err !=nil{
+	if err = userCollection.FindOne(ctx, bson.M{"_id": userId}).Decode(&user); err !=nil{
 		return c.Status(400).JSON(fiber.Map{
 			"status":  "error",
 			"message": "user does not exist",
@@ -235,5 +236,57 @@ func Profile(c *fiber.Ctx) error{
 		"status":  "success",
 		"message": "successfully fetched user",
 		"data":    helpers.SterializeUser(user),
+	})
+}
+
+
+func UpdateAddress(c *fiber.Ctx) error{
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancel()
+
+	idLocal := c.Locals("id").(string)
+	userId, err := primitive.ObjectIDFromHex(idLocal)
+
+	if err !=nil{
+		return c.Status(400).JSON(fiber.Map{
+			"status": "error",
+			"message": "cannot obtain userId, tryu signing in",
+		})
+	}
+
+	var address models.Address
+	if err := c.BodyParser(&address); err !=nil{
+		return c.Status(400).JSON(fiber.Map{
+			"status": "error",
+			"message": "provide valid address",
+			"data": err.Error(),
+		})
+	}
+
+	filter :=bson.M{"_id": userId}
+	update := bson.M{"$set": bson.M{"address": address}}
+
+	if _, err := userCollection.UpdateOne(ctx, filter, update, options.Update()); err !=nil{
+		return c.Status(500).JSON(fiber.Map{
+			"status": "error",
+			"message": "cannot update user's address",
+			"data": err.Error(),
+		})
+	}
+
+	var user models.User
+
+	if err = userCollection.FindOne(ctx, bson.M{"_id": userId}, options.FindOne()).Decode(&user); err !=nil{
+		return c.Status(500).JSON(fiber.Map{
+			"status": "error",
+			"message": "cannot fetch user's details",
+			"data": err.Error(),
+		})
+	}
+
+	return c.Status(200).JSON(fiber.Map{
+		"status": "success",
+		"message": "user address updated",
+		"data": helpers.SterializeUser(user),
 	})
 }
