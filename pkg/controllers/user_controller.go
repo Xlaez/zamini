@@ -114,6 +114,80 @@ func Signup(c *fiber.Ctx) error{
 	return c.Status(200).JSON(fiber.Map{
 		"status": "succees",
 		"message": "User created successfully",
+		"data": helpers.SterializeUser(user),
+	})
+}
+
+func SingIn(c *fiber.Ctx)error{
+	type SignInRequest struct{
+		Email string `json:"email" validate:"required,email"`
+		Password string `json:"password" validate:"required,alphanum"`
+	}
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	defer cancel()
+
+	var req SignInRequest
+
+	if err := c.BodyParser(&req); err !=nil{
+		return c.Status(400).JSON(fiber.Map{
+			"status": "error",
+			"message": "Invalid request body",
+			"data": err.Error(),
+		})
+	}
+
+	var existingUser bson.Raw
+	
+	if err := userController.FindOne(ctx, bson.M{"email": req.Email}).Decode(&existingUser);err !=nil{
+		return c.Status(400).JSON(fiber.Map{
+			"status": "error",
+			"message": "user does not exist",
+			"data": err.Error(),
+		})
+	}
+
+	isValid := helpers.ComparePassword(req.Password, existingUser.Lookup("password").StringValue())
+
+	if isValid != nil{
+		return c.Status(400).JSON(fiber.Map{
+			"status": "error",
+			"message": "Invalid credentials",
+			"data": nil,
+		})
+	}
+
+	signedToken, err := helpers.CreateToken(existingUser.Lookup("_id").ObjectID(), existingUser.Lookup("userType").StringValue())
+
+	if err !=nil{
+		return c.Status(500).JSON(fiber.Map{
+			"status": "error",
+			"message": "Failed to create auth token",
+			"data": err.Error(),
+		})
+	}
+
+	cookie := &fiber.Cookie{
+		Name: "x-auth-jwt",
+		Value: signedToken,
+		Expires: time.Now().Add(time.Hour * 24),
+		HTTPOnly: true,
+	}
+
+	c.Cookie(cookie)
+
+	user := models.User{}
+
+	user.ID = existingUser.Lookup("_id").ObjectID()
+    user.Username = existingUser.Lookup("username").StringValue()
+    user.Email = existingUser.Lookup("email").StringValue()
+    user.UserType = existingUser.Lookup("userType").StringValue()
+    user.CreatedAt = existingUser.Lookup("createdAt").Time()
+    user.UpdatedAt = existingUser.Lookup("updatedAt").Time()
+	
+	return c.Status(200).JSON(fiber.Map{
+		"status": "success",
+		"message": "User signin successfully",
 		"data": user,
 	})
 }

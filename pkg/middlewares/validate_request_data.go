@@ -9,7 +9,6 @@ func ValidateMiddleware(c *fiber.Ctx) error{
 	validate := validator.New()
 
 	type UserInputCred struct{
-		Username string `json:"username" validate:"required"`
 		Email    string `json:"email" validate:"required,email"`
 		Password string `json:"password" validate:"required,min=8"`
 	}

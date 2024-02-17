@@ -13,4 +13,5 @@ func Router(app *fiber.App){
 	userApi := api.Group("/auth")
 
 	userApi.Post("/signup", middlewares.ValidateMiddleware ,controllers.Signup)
+	userApi.Post("/signin", middlewares.ValidateMiddleware, controllers.SingIn)
 }
