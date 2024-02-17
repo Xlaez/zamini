@@ -207,3 +207,33 @@ func SingOut(c *fiber.Ctx)error{
 		"message": "successfully signed user out",
 	})
 }
+
+func Profile(c *fiber.Ctx) error{
+	idLocal := c.Locals("id").(string)
+
+	userId, err := primitive.ObjectIDFromHex(idLocal)
+	if err !=nil{
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": "failed to get id",
+		})
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var user models.User
+	if err = userController.FindOne(ctx, bson.M{"_id": userId}).Decode(&user); err !=nil{
+		return c.Status(400).JSON(fiber.Map{
+			"status":  "error",
+			"message": "user does not exist",
+			"data":    err.Error(),
+		})
+	}
+
+	return c.Status(200).JSON(fiber.Map{
+		"status":  "success",
+		"message": "successfully fetched user",
+		"data":    helpers.SterializeUser(user),
+	})
+}

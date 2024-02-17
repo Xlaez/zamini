@@ -14,4 +14,7 @@ func Router(app *fiber.App){
 
 	userApi.Post("/signup", middlewares.ValidateMiddleware ,controllers.Signup)
 	userApi.Post("/signin", middlewares.ValidateMiddleware, controllers.SingIn)
+	userApi.Post("/signout", middlewares.RequireAuthMiddleware, controllers.SingOut)
+	userApi.Get("/profile", middlewares.RequireAuthMiddleware, controllers.Profile)
+
 }
